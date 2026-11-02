@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Booking!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow">
+        <h1 class="text-2xl font-bold mb-6 text-indigo-600">Booking Portal</h1>
+        
+        <div id="alertBox" class="hidden mb-4 p-3 rounded font-medium"></div>
+
+        <form id="bookingForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div>
+                <label class="block text-sm font-medium mb-1">Service</label>
+                <select id="serviceSelect" required class="w-full border p-2 rounded">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Client Name</label>
+                <input type="text" id="patientName" required class="w-full border p-2 rounded">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Date & Time</label>
+                <input type="datetime-local" id="slotTime" required class="w-full border p-2 rounded">
+            </div>
+            <div class="md:col-span-3">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 w-full">Book Slot</button>
+            </div>
+        </form>
+
+        <h2 class="text-xl font-semibold mb-3">Today's Appointments</h2>
+        <table class="w-full border-collapse border text-left">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="p-2 border">Service ID</th>
+                    <th class="p-2 border">Client Name</th>
+                    <th class="p-2 border">Time</th>
+                    <th class="p-2 border">Status</th>
+                </tr>
+            </thead>
+            <tbody id="appointmentsTableBody">
+                <tr><td colspan="4" class="p-2 text-center text-gray-400">No appointments.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchServices();
+            fetchAppointments();
+            document.getElementById("bookingForm").addEventListener("submit", bookSlot);
+        });
+
+        async function fetchServices() {
+            try {
+                const r = await fetch(`${API_BASE}/services`);
+                const services = await r.json();
+                const sel = document.getElementById("serviceSelect");
+                sel.innerHTML = '<option value="">Choose a Service</option>';
+                services.forEach(s => sel.innerHTML += `<option value="${s.id}">${s.name} (${s.specialty})</option>`);
+            } catch (e) {
+                showAlert("Backend unreachable. Ensure FastAPI is running on port 8000.", "error");
+            }
+        }
+
+        async function fetchAppointments() {
+            try {
+                const r = await fetch(`${API_BASE}/appointments`);
+                const appts = await r.json();
+                const body = document.getElementById("appointmentsTableBody");
+                
+                // FIX: Safely empty placeholder status instead of freezing execution loop
+                if (!appts || appts.length === 0) {
+                    body.innerHTML = '<tr><td colspan="4" class="p-2 text-center text-gray-400">No appointments recorded yet.</td></tr>';
+                    return;
+                }
+                
+                body.innerHTML = '';
+                appts.forEach(a => {
+                    body.innerHTML += `<tr><td class="p-2 border">#${a.id}</td><td class="p-2 border">${a.patient_name}</td><td class="p-2 border">${new Date(a.slot_time).toLocaleString()}</td><td class="p-2 border">${a.status}</td></tr>`;
+                });
+            } catch (e) {
+                console.error("Error reading queue array:", e);
+            }
+        }
+
+        async function bookSlot(e) {
+            e.preventDefault();
+            
+            // FIX: Submit raw calendar value directly to let FastAPI safely digest local execution hours without offset math
+            const rawTime = document.getElementById("slotTime").value;
+
+            const payload = {
+                service_id: parseInt(document.getElementById("serviceSelect").value),
+                patient_name: document.getElementById("patientName").value,
+                slot_time: rawTime
+            };
+            try {
+                const r = await fetch(`${API_BASE}/appointments`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                const res = await r.json();
+                if(!r.ok) {
+                    throw new Error(res.detail || "Booking failed");
+                }
+                showAlert("Appointment successfully recorded and secured!", "success");
+                document.getElementById("bookingForm").reset();
+                fetchAppointments(); // Instantly refresh table visualization arrays
+            } catch (err) {
+                showAlert(err.message, "error");
+            }
+        }
+
+        function showAlert(msg, type) {
+            const b = document.getElementById("alertBox");
+            b.className = `p-3 rounded font-medium ${type==='success'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`;
+            b.textContent = msg;
+            b.classList.remove("hidden");
+            
+            // Auto hide notification blocks safely after 5 seconds
+            setTimeout(() => { b.classList.add("hidden"); }, 5000);
+        }
+    </script>
+</body>
+</html>
