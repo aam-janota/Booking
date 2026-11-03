@@ -19,8 +19,8 @@ app.add_middleware(
 
 # --- DATABASE SIMULATION ---
 SERVICES = {
-    1: {"name": "Service Beginner", "specialty": "Beginner", "start_hour": time(9, 0), "end_hour": time(17, 0)},
-    2: {"name": "Service PRO", "specialty": "PRO", "start_hour": time(10, 0), "end_hour": time(16, 0)}
+    1: {"name": "Service Beginner", "specialty": "ID #1", "start_hour": time(9, 0), "end_hour": time(17, 0)},
+    2: {"name": "Service PRO", "specialty": "ID #2", "start_hour": time(10, 0), "end_hour": time(16, 0)}
 }
 
 DB_FILE = "appointments_db.json"
